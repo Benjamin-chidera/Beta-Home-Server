@@ -5,6 +5,7 @@ const PORT = process.env.PORT || 5000
 const cors = require("cors")
 const mongoose = require("mongoose")
 const profileRouter = require("./router/profileRouter")
+const inspectionRouter = require("./router/inspectionRouter")
 
 
 app.use(express.json())
@@ -16,6 +17,7 @@ app.get("/", (req, res) => {
 })
 
 app.use("/api/v1", profileRouter)
+app.use("/api/v1", inspectionRouter)
 app.use((req, res) => {
     res.status(404).send("not found")
 })
