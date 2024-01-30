@@ -33,7 +33,7 @@ const inspectionSchema = new Schema({
     },
 
     inspectionDate: {
-        type: String,
+        type: Date,
         required: true
     },
 
