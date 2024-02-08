@@ -2,71 +2,85 @@ const PROPERTY = require("../models/property")
 const cloudinary = require("cloudinary").v2
 const fs = require("fs")
 
-const handleAddProperty = async(req, res) => {
-     const {title, location, price, propertyType, description, tags, propertyStatus, bathroom, bedroom, garage,squareFeet, name, phoneNumber, whatsappNumber} = req.body
+const handleAddProperty = async (req, res) => {
+  const { title, location, price, propertyType, description, tags, propertyStatus, bathroom, bedroom, garage, squareFeet, name, phoneNumber, whatsappNumber } = req.body;
 
-    const video = req.files.video.tempFilePath
-    const images = req.files.images
-    const avatar = req.files.avatar.tempFilePath
+  try {
+      // Validate input data (optional, depending on your requirements)
 
+      const avatar = req.files.avatar.tempFilePath;
+      const video = req.files.video.tempFilePath;
+      const images = req.files.images;
 
-    try {
-        const avatarResult = await cloudinary.uploader.upload(avatar, {
-            use_filename: true, // this will maintain the file name of the image
-            folder: "betaHome" // the name of the folder the images will be saving 
-        })
-        //delete temp file
-        fs.unlinkSync(req.files.avatar.tempFilePath)
+      // Upload avatar to Cloudinary
+      const avatarResult = await cloudinary.uploader.upload(avatar, {
+          use_filename: true,
+          folder: "betaHome"
+      });
+      fs.unlinkSync(avatar); // Delete temp file
 
-        //images upload
-        const imageUploadPromises = images.map(async(image) => { // we are mapping it first because we are going to have more than one image
-            const result = await cloudinary.uploader.upload(image.tempFilePath, {
-                use_filename: true,
-                folder: "betaHome"
-            })
-            fs.unlinkSync(image.tempFilePath)
-            return result.secure_url
-        })
+      // Upload images to Cloudinary
+      const imageUploadPromises = images.map(async (image) => {
+          const result = await cloudinary.uploader.upload(image.tempFilePath, {
+              use_filename: true,
+              folder: "betaHome"
+          });
+          fs.unlinkSync(image.tempFilePath); // Delete temp file
+          return result.secure_url;
+      });
+      const uploadedImages = await Promise.all(imageUploadPromises);
 
-        const uploadedImages = await Promise.all(imageUploadPromises)
-        // image upload
+      // Upload video to Cloudinary
+      const videoResult = await cloudinary.uploader.upload(video, {
+          resource_type: "video",
+          folder: "betahomevideos"
+      });
+      fs.unlinkSync(video); // Delete temp file
 
-        // video upload
-        const videoResult = await cloudinary.uploader.upload(video, {
-            resource_type: "video",
-            folder: "betahomevideos"
-        }) 
+      const media = {
+          images: uploadedImages,
+          video: videoResult.secure_url
+      };
 
-        fs.unlinkSync(req.files.video.tempFilePath)
+      const salesupport = {
+          name,
+          phoneNumber,
+          whatsappNumber,
+          avatar: avatarResult.secure_url
+      };
 
-        const media = {
-            images: [...uploadedImages],
-            video: videoResult.secure_url
-        }
+      console.log(salesupport);
 
+      const property = await PROPERTY.create({
+          title,
+          location,
+          price,
+          propertyType,
+          description,
+          tags,
+          propertyStatus,
+          bathroom,
+          bedroom,
+          garage,
+          squareFeet,
+          media,
+          salesupport
+      });
 
-        const salesupport = {
-            name, phoneNumber, whatsappNumber,avatar: avatarResult.secure_url
-        }
+      res.status(201).json({ success: true, property });
+  } catch (error) {
+      console.error(error);
+      res.status(400).json({ success: false, error: error.message });
+  }
+};
 
-        console.log(salesupport);
-
-
-        const property = await PROPERTY.create({
-            title, location, price, propertyType, description, tags, propertyStatus, bathroom, bedroom, garage,squareFeet, media, salesupport
-        })
-        res.status(201).json({success: true, property})
-        
-    } catch (error) {
-        res.status(400).json(error)
-    }
-}
 
 
 const handleGetAllProperty = async(req, res) => {
-    const {location, type, bedroom, title} = req.query
+    const {location, type, bedroom, title, sort} = req.query
 
     const queryObject = {}
+    let res = PROPERTY.find(queryObject)
 
     if (location) {
         queryObject.location = {$regex: location, $options: "i"}
@@ -81,10 +95,17 @@ const handleGetAllProperty = async(req, res) => {
     }
 
     if (title) {
-        queryObject.title = {$regex: title, $options: "i"}
+      queryObject.title = {$regex: title, $options: "i"}
+    }
+
+    if(sort){
+      result - result.sort(`${sort}`) -("createdAt")
+    } else{
+      return res.sort("-createdAt")
     }
     
     try {
+      result - result.find(queryObject)
         const property = await PROPERTY.find(queryObject).sort("-createdAt")
         res.status(200).json({success: true, NumOfProperty: property.length,property})
     } catch (error) {
@@ -241,8 +262,8 @@ const handleDeleteProperty = async(req, res) => {
 
 const handleFeaturedProperty = async(req, res) => {
   try {
-    const housePro = await PROPERTY.find({propertyType: 'house'}).limit(3)
-    const landPro = await PROPERTY.find({propertyType: 'land'}).limit(3)
+    const housePro = await PROPERTY.find({propertyType: 'house'}).sort(-createdAt().limit())
+    const landPro = await PROPERTY.find({propertyType: 'land'}).limit(3).sort(-createdAt().limit())
 
     const featuredProperties = [...housePro, ...landPro]
     res.status(200).json({ msg: "success", featuredProperties})
